@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Mapeador NeuroGame</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .instrucao {
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .painel {
+            max-width: 1000px;
+            margin: 0 auto 20px auto;
+        }
+
+        .campos {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .campos input {
+            padding: 10px;
+            font-size: 16px;
+            width: 250px;
+        }
+
+        /* =====================================================
+           CONTAINER DA IMAGEM
+           ===================================================== */
+
+        .imagem-container {
+    position: relative;
+
+    width: 667px;
+    max-width: 100%;
+
+    margin: 0 auto;
+}
+
+        #imagem {
+            display: block;
+
+            width: 100%;
+            height: auto;
+
+            user-select: none;
+        }
+
+        /* =====================================================
+           SVG QUE FICA EXATAMENTE SOBRE A IMAGEM
+           ===================================================== */
+
+        #camada {
+            position: absolute;
+
+            top: 0;
+            left: 0;
+
+            width: 100%;
+            height: 100%;
+
+            pointer-events: none;
+
+            overflow: visible;
+        }
+
+        /* Polígono sendo desenhado */
+
+        #poligono {
+            fill: rgba(0, 200, 255, 0.25);
+
+            stroke: rgb(0, 160, 200);
+
+            stroke-width: 2;
+
+            vector-effect: non-scaling-stroke;
+        }
+
+        /* Linha antes de termos 3 pontos */
+
+        #linha {
+            fill: none;
+
+            stroke: rgb(0, 160, 200);
+
+            stroke-width: 2;
+
+            vector-effect: non-scaling-stroke;
+        }
+
+        /* Pontos clicados */
+
+        .ponto {
+            fill: red;
+
+            stroke: white;
+
+            stroke-width: 1;
+
+            vector-effect: non-scaling-stroke;
+        }
+
+        /* Número do ponto */
+
+        .numero-ponto {
+            fill: black;
+
+            font-family: Arial, sans-serif;
+
+            font-size: 12px;
+
+            font-weight: bold;
+
+            paint-order: stroke;
+
+            stroke: white;
+
+            stroke-width: 3px;
+        }
+
+        /* =====================================================
+           PAINEL INFERIOR
+           ===================================================== */
+
+        .informacoes {
+            margin-top: 15px;
+
+            font-size: 16px;
+        }
+
+        #coordenadaAtual {
+            font-weight: bold;
+        }
+
+        .botoes {
+            margin-top: 15px;
+
+            display: flex;
+
+            justify-content: center;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 18px;
+
+            font-size: 16px;
+
+            cursor: pointer;
+        }
+
+        textarea {
+            display: block;
+
+            width: 100%;
+
+            max-width: 900px;
+
+            height: 180px;
+
+            margin: 20px auto;
+
+            padding: 12px;
+
+            font-family: Consolas, monospace;
+
+            font-size: 14px;
+
+            resize: vertical;
+        }
+
+        .status {
+            margin-top: 10px;
+
+            color: #555;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<h1>Mapeador de Estruturas Anatômicas</h1>
+
+<p class="instrucao">
+    Clique ao redor da estrutura seguindo o seu contorno.
+</p>
+
+
+<div class="painel">
+
+    <div class="campos">
+
+        <input
+            id="nomeEstrutura"
+            type="text"
+            placeholder="Nome: Giro pré-central"
+        >
+
+        <input
+            id="idEstrutura"
+            type="text"
+            placeholder="ID: giro_precentral"
+        >
+
+    </div>
+
+
+    <div
+        id="imagemContainer"
+        class="imagem-container"
+    >
+
+        <img
+            id="imagem"
+            src="imagens/PalcoTelencefalo.png"
+            alt="Telencéfalo"
+            draggable="false"
+        >
+
+
+        <svg
+            id="camada"
+            preserveAspectRatio="none"
+        >
+
+            <polyline
+                id="linha"
+                points=""
+            ></polyline>
+
+
+            <polygon
+                id="poligono"
+                points=""
+            ></polygon>
+
+
+            <g id="pontosSVG"></g>
+
+        </svg>
+
+    </div>
+
+
+    <div class="informacoes">
+
+        Coordenada atual:
+
+        <span id="coordenadaAtual">
+            X: -- | Y: --
+        </span>
+
+        <br><br>
+
+        Pontos:
+
+        <strong id="quantidadePontos">
+            0
+        </strong>
+
+    </div>
+
+
+    <div class="botoes">
+
+        <button id="desfazer">
+            ↶ Desfazer último ponto
+        </button>
+
+        <button id="limpar">
+            🗑 Limpar estrutura
+        </button>
+
+    </div>
+
+
+    <textarea
+        id="resultado"
+        readonly
+        placeholder="O código do polygon aparecerá aqui..."
+    ></textarea>
+
+
+    <div
+        id="status"
+        class="status"
+    ></div>
+
+</div>
+
+
+
+<script>
+
+    /* =========================================================
+       ELEMENTOS
+       ========================================================= */
+
+    const imagem =
+        document.getElementById("imagem");
+
+    const container =
+        document.getElementById("imagemContainer");
+
+    const svg =
+        document.getElementById("camada");
+
+    const poligono =
+        document.getElementById("poligono");
+
+    const linha =
+        document.getElementById("linha");
+
+    const pontosSVG =
+        document.getElementById("pontosSVG");
+
+    const resultado =
+        document.getElementById("resultado");
+
+    const quantidadePontos =
+        document.getElementById("quantidadePontos");
+
+    const coordenadaAtual =
+        document.getElementById("coordenadaAtual");
+
+    const nomeEstrutura =
+        document.getElementById("nomeEstrutura");
+
+    const idEstrutura =
+        document.getElementById("idEstrutura");
+
+    
+
+    const botaoDesfazer =
+        document.getElementById("desfazer");
+
+    const botaoLimpar =
+        document.getElementById("limpar");
+
+    const status =
+        document.getElementById("status");
+
+
+    /* =========================================================
+       LISTA DE PONTOS
+       ========================================================= */
+
+    let pontos = [];
+
+
+    /* =========================================================
+       CONFIGURA O SVG COM O TAMANHO REAL DA IMAGEM
+       ========================================================= */
+
+    function configurarSVG() {
+
+        const largura =
+            imagem.naturalWidth;
+
+        const altura =
+            imagem.naturalHeight;
+
+
+        svg.setAttribute(
+            "viewBox",
+            `0 0 ${largura} ${altura}`
+        );
+
+
+        status.textContent =
+            `Imagem original: ${largura} × ${altura} pixels`;
+
+
+        console.log(
+            "Imagem original:",
+            largura,
+            "x",
+            altura
+        );
+
+    }
+
+
+    if (imagem.complete) {
+
+        configurarSVG();
+
+    } else {
+
+        imagem.addEventListener(
+            "load",
+            configurarSVG
+        );
+
+    }
+
+
+    /* =========================================================
+       CONVERTE POSIÇÃO DO MOUSE PARA COORDENADA DA IMAGEM
+       ========================================================= */
+
+    function obterCoordenadas(event) {
+
+        const rect =
+            imagem.getBoundingClientRect();
+
+
+        const posicaoX =
+            event.clientX - rect.left;
+
+
+        const posicaoY =
+            event.clientY - rect.top;
+
+
+        const escalaX =
+            imagem.naturalWidth /
+            rect.width;
+
+
+        const escalaY =
+            imagem.naturalHeight /
+            rect.height;
+
+
+        const x =
+            Math.round(
+                posicaoX * escalaX
+            );
+
+
+        const y =
+            Math.round(
+                posicaoY * escalaY
+            );
+
+
+        return { x, y };
+
+    }
+
+
+    /* =========================================================
+       MOSTRA A COORDENADA ENQUANTO MOVIMENTA O MOUSE
+       ========================================================= */
+
+    container.addEventListener(
+        "mousemove",
+        function(event) {
+
+            const coordenada =
+                obterCoordenadas(event);
+
+
+            coordenadaAtual.textContent =
+                `X: ${coordenada.x} | Y: ${coordenada.y}`;
+
+        }
+    );
+
+
+    /* =========================================================
+       ADICIONA NOVO PONTO
+       ========================================================= */
+
+    container.addEventListener(
+        "click",
+        function(event) {
+
+            const coordenada =
+                obterCoordenadas(event);
+
+
+            pontos.push([
+                coordenada.x,
+                coordenada.y
+            ]);
+
+
+            atualizarDesenho();
+
+        }
+    );
+
+
+    /* =========================================================
+       ATUALIZA POLÍGONO, PONTOS E CÓDIGO
+       ========================================================= */
+
+    function atualizarDesenho() {
+
+        const textoPontos =
+            pontos
+                .map(
+                    ponto =>
+                        `${ponto[0]},${ponto[1]}`
+                )
+                .join(" ");
+
+
+        /* -----------------------------------------
+           Menos de três pontos:
+           mostra somente uma linha
+           ----------------------------------------- */
+
+        if (pontos.length < 3) {
+
+            linha.setAttribute(
+                "points",
+                textoPontos
+            );
+
+
+            poligono.setAttribute(
+                "points",
+                ""
+            );
+
+        } else {
+
+            linha.setAttribute(
+                "points",
+                ""
+            );
+
+
+            poligono.setAttribute(
+                "points",
+                textoPontos
+            );
+
+        }
+
+
+        /* -----------------------------------------
+           Limpa os pontos antigos
+           ----------------------------------------- */
+
+        pontosSVG.innerHTML = "";
+
+
+        /* -----------------------------------------
+           Desenha cada ponto
+           ----------------------------------------- */
+
+        pontos.forEach(
+            function(ponto, indice) {
+
+                const circulo =
+                    document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "circle"
+                    );
+
+
+                circulo.setAttribute(
+                    "cx",
+                    ponto[0]
+                );
+
+
+                circulo.setAttribute(
+                    "cy",
+                    ponto[1]
+                );
+
+
+                circulo.setAttribute(
+                    "r",
+                    "4"
+                );
+
+
+                circulo.setAttribute(
+                    "class",
+                    "ponto"
+                );
+
+
+                pontosSVG.appendChild(
+                    circulo
+                );
+
+
+                /* número do ponto */
+
+                const texto =
+                    document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "text"
+                    );
+
+
+                texto.setAttribute(
+                    "x",
+                    ponto[0] + 6
+                );
+
+
+                texto.setAttribute(
+                    "y",
+                    ponto[1] - 6
+                );
+
+
+                texto.setAttribute(
+                    "class",
+                    "numero-ponto"
+                );
+
+
+                texto.textContent =
+                    indice + 1;
+
+
+                pontosSVG.appendChild(
+                    texto
+                );
+
+            }
+        );
+
+
+        quantidadePontos.textContent =
+            pontos.length;
+
+
+        gerarCodigo();
+
+    }
+
+
+    /* =========================================================
+       GERA CÓDIGO PARA O JOGO
+       ========================================================= */
+
+    function gerarCodigo() {
+
+        const pontosTexto =
+            pontos
+                .map(
+                    ponto =>
+                        `${ponto[0]},${ponto[1]}`
+                )
+                .join(" ");
+
+
+        let id =
+            idEstrutura.value.trim();
+
+
+        let nome =
+            nomeEstrutura.value.trim();
+
+
+        if (id === "") {
+
+            id = "estrutura1";
+
+        }
+
+
+        if (nome === "") {
+
+            nome = "Nome da estrutura";
+
+        }
+
+
+        resultado.value =
+`<polygon
+    id="${id}"
+    class="estrutura"
+    data-nome="${nome}"
+    points="${pontosTexto}">
+</polygon>`;
+
+    }
+
+
+    /* =========================================================
+       ATUALIZA CÓDIGO AO DIGITAR NOME OU ID
+       ========================================================= */
+
+    nomeEstrutura.addEventListener(
+        "input",
+        gerarCodigo
+    );
+
+
+    idEstrutura.addEventListener(
+        "input",
+        gerarCodigo
+    );
+
+
+    /* =========================================================
+       DESFAZER ÚLTIMO PONTO
+       ========================================================= */
+
+    function desfazer() {
+
+        if (pontos.length === 0) {
+
+            return;
+
+        }
+
+
+        pontos.pop();
+
+
+        atualizarDesenho();
+
+    }
+
+
+    botaoDesfazer.addEventListener(
+        "click",
+        desfazer
+    );
+
+
+    /* =========================================================
+       LIMPAR TUDO
+       ========================================================= */
+
+    function limpar() {
+
+        pontos = [];
+
+
+        atualizarDesenho();
+
+    }
+
+
+    botaoLimpar.addEventListener(
+        "click",
+        limpar
+    );
+
+
+    /* =========================================================
+       CTRL + Z PARA DESFAZER
+       ========================================================= */
+
+    document.addEventListener(
+        "keydown",
+        function(event) {
+
+            if (
+                event.ctrlKey &&
+                event.key.toLowerCase() === "z"
+            ) {
+
+                event.preventDefault();
+
+                desfazer();
+
+            }
+
+        }
+    );
+
+
+    /* =========================================================
+       PRIMEIRA ATUALIZAÇÃO
+       ========================================================= */
+
+    atualizarDesenho();
+
+
+</script>
+
+
+</body>
+
+</html>
